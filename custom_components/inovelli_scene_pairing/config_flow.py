@@ -31,6 +31,7 @@ from .const import (
     CONF_DEFAULT_LIGHT_HUE,
     CONF_ENABLE_DASHBOARD,
     CONF_ENABLE_HARDWARE,
+    CONF_HIDE_GROUP_ENTITIES,
     CONF_PAIR_PREFIX,
     CONF_PALETTE,
     CONF_WINDOW_SECONDS,
@@ -40,6 +41,7 @@ from .const import (
     DEFAULT_CMD_REMOVE,
     DEFAULT_ENABLE_DASHBOARD,
     DEFAULT_ENABLE_HARDWARE,
+    DEFAULT_HIDE_GROUP_ENTITIES,
     DEFAULT_OPTIONS,
     DOMAIN,
     GESTURE_COMMANDS,
@@ -123,6 +125,7 @@ class InovelliScenePairingOptionsFlow(OptionsFlow):
                     CONF_DEFAULT_FAN_HUE: int(user_input[CONF_DEFAULT_FAN_HUE]),
                     CONF_ENABLE_HARDWARE: user_input[CONF_ENABLE_HARDWARE],
                     CONF_ENABLE_DASHBOARD: user_input[CONF_ENABLE_DASHBOARD],
+                    CONF_HIDE_GROUP_ENTITIES: user_input[CONF_HIDE_GROUP_ENTITIES],
                 },
             )
 
@@ -168,6 +171,10 @@ class InovelliScenePairingOptionsFlow(OptionsFlow):
                 vol.Required(
                     CONF_ENABLE_DASHBOARD,
                     default=current.get(CONF_ENABLE_DASHBOARD, DEFAULT_ENABLE_DASHBOARD),
+                ): bool,
+                vol.Required(
+                    CONF_HIDE_GROUP_ENTITIES,
+                    default=current.get(CONF_HIDE_GROUP_ENTITIES, DEFAULT_HIDE_GROUP_ENTITIES),
                 ): bool,
             }
         )

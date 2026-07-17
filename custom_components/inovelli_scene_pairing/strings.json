@@ -25,7 +25,8 @@
           "default_light_hue": "Default light idle color (hue 0-255)",
           "default_fan_hue": "Default fan idle color (hue 0-255)",
           "enable_hardware": "Enable physical scene-button pairing",
-          "enable_dashboard": "Enable management dashboard"
+          "enable_dashboard": "Enable management dashboard",
+          "hide_group_entities": "Hide ZHA group entities"
         },
         "data_description": {
           "window_seconds": "How long a switch stays in pairing mode after you hold its config button.",
@@ -38,7 +39,8 @@
           "default_light_hue": "LED bar hue a light dimmer shows when it is not in a group (default 21, orange).",
           "default_fan_hue": "LED bar hue a fan switch shows when it is not in a group (default 170, blue).",
           "enable_hardware": "React to the physical scene buttons (hold to pair/arm, tap to set color, etc.). Turn off for a dashboard-only setup.",
-          "enable_dashboard": "Adds an \"Inovelli Pairing\" sidebar panel + Lovelace card to create, add, recolor, and remove groups. Hard-refresh the browser after toggling."
+          "enable_dashboard": "Adds an \"Inovelli Pairing\" sidebar panel + Lovelace card to create, add, recolor, and remove groups. Hard-refresh the browser after toggling.",
+          "hide_group_entities": "ZHA auto-creates a light + switch entity for every Zigbee group; they duplicate the bound switches and leak to HomeKit/Google. On (default) disables them in the entity registry; off re-enables the ones this integration disabled."
         }
       }
     }

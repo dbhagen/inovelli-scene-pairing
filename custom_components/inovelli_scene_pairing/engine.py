@@ -36,6 +36,7 @@ from .const import (
     CONF_CMD_REMOVE,
     CONF_DEFAULT_FAN_HUE,
     CONF_DEFAULT_LIGHT_HUE,
+    CONF_HIDE_GROUP_ENTITIES,
     CONF_PAIR_PREFIX,
     CONF_PALETTE,
     CONF_WINDOW_SECONDS,
@@ -255,6 +256,10 @@ class ScenePairingEngine:
     def _fan_idle_hue(self) -> int:
         return int(self.options.get(CONF_DEFAULT_FAN_HUE, LED_IDLE_HUE_FAN))
 
+    @property
+    def _hide_group_entities(self) -> bool:
+        return bool(self.options.get(CONF_HIDE_GROUP_ENTITIES, True))
+
     def _device_type(self, ieee: str) -> str:
         """'fan' for VZM35 fan switches, else 'light' (cached per ieee)."""
         if ieee in self._type_cache:
@@ -343,6 +348,8 @@ class ScenePairingEngine:
                 gid = getattr(group, "group_id", None)
                 await self._zha.bind(anchor, gid)
                 await self._set_color(anchor, color)
+                if gid is not None:
+                    self.hass.async_create_task(self._async_hide_new_group(gid))
             existing = await self._pairing_group_of(ieee)
             if existing is not None and getattr(existing, "group_id", None) == gid:
                 await self._led(ieee, color, 2)  # ADD-ONLY: already in -> no-op
@@ -521,6 +528,8 @@ class ScenePairingEngine:
             for ieee in members:
                 await self._set_color(ieee, color)
         self._notify()
+        if gid is not None:
+            self.hass.async_create_task(self._async_hide_new_group(gid))
         return gid
 
     async def async_add_member(self, group_id: int, ieee: str) -> None:
@@ -562,6 +571,55 @@ class ScenePairingEngine:
             self._expire_if_stale()
             await self._hold(ieee)
         self._notify()
+
+    # -- ZHA group-entity visibility -------------------------------------------
+    def _zha_group_entities(self, group_id: int) -> list[str]:
+        """The light/switch entities ZHA auto-creates for a group.
+
+        Their registry unique_id is ``<domain>_zha_group_0x{group_id:04x}`` — a stable
+        anchor, so we never match on the (renameable) friendly entity_id.
+        """
+        reg = er.async_get(self.hass)
+        suffix = f"_zha_group_0x{group_id:04x}"
+        return [
+            entry.entity_id
+            for entry in reg.entities.values()
+            if entry.platform == "zha" and entry.unique_id.endswith(suffix)
+        ]
+
+    async def async_apply_group_visibility(self, group_ids: list[int] | None = None) -> None:
+        """Disable (or, when the option is off, re-enable) redundant ZHA group entities.
+
+        These duplicate the bound switches and otherwise leak to HomeKit/Google/etc.
+        Only entities we disabled ourselves are re-enabled when the option is turned off.
+        """
+        reg = er.async_get(self.hass)
+        hide = self._hide_group_entities
+        if group_ids is None:
+            group_ids = [g["group_id"] for g in self.list_groups()]
+        for gid in group_ids:
+            if gid is None:
+                continue
+            for entity_id in self._zha_group_entities(gid):
+                entry = reg.async_get(entity_id)
+                if entry is None:
+                    continue
+                if hide and entry.disabled_by is None:
+                    reg.async_update_entity(
+                        entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION
+                    )
+                elif not hide and entry.disabled_by is er.RegistryEntryDisabler.INTEGRATION:
+                    reg.async_update_entity(entity_id, disabled_by=None)
+
+    async def _async_hide_new_group(self, group_id: int) -> None:
+        """Hide a freshly-created group's entities once ZHA has registered them."""
+        if not self._hide_group_entities:
+            return
+        for _ in range(8):
+            if self._zha_group_entities(group_id):
+                await self.async_apply_group_visibility([group_id])
+                return
+            await asyncio.sleep(1)
 
     # -- LED helpers -----------------------------------------------------------
     def _color_entities(self, ieee: str) -> tuple[str | None, str | None]:

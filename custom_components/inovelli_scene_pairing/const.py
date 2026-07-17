@@ -62,11 +62,13 @@ CONF_PALETTE = "palette"
 CONF_PAIR_PREFIX = "pair_prefix"
 CONF_ENABLE_DASHBOARD = "enable_dashboard"
 CONF_ENABLE_HARDWARE = "enable_hardware"
+CONF_HIDE_GROUP_ENTITIES = "hide_group_entities"
 CONF_DEFAULT_LIGHT_HUE = "default_light_hue"
 CONF_DEFAULT_FAN_HUE = "default_fan_hue"
 
 DEFAULT_ENABLE_DASHBOARD = False
 DEFAULT_ENABLE_HARDWARE = True
+DEFAULT_HIDE_GROUP_ENTITIES = True
 
 # Known Inovelli Blue zha_event gesture commands, offered as dropdown options in the
 # options flow (custom values are still allowed for anything not listed here).
@@ -93,6 +95,7 @@ DEFAULT_OPTIONS = {
     CONF_CMD_EXIT: DEFAULT_CMD_EXIT,
     CONF_ENABLE_DASHBOARD: DEFAULT_ENABLE_DASHBOARD,
     CONF_ENABLE_HARDWARE: DEFAULT_ENABLE_HARDWARE,
+    CONF_HIDE_GROUP_ENTITIES: DEFAULT_HIDE_GROUP_ENTITIES,
     CONF_DEFAULT_LIGHT_HUE: LED_IDLE_HUE,
     CONF_DEFAULT_FAN_HUE: LED_IDLE_HUE_FAN,
 }

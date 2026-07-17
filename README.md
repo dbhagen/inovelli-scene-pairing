@@ -92,6 +92,10 @@ for use in your own automations.
   dashboard-only.
 - **Enable management dashboard** — add the sidebar panel + card (default off). Hard-refresh the
   browser after toggling.
+- **Hide ZHA group entities** — ZHA auto-creates a `light` + `switch` entity for every Zigbee group.
+  They duplicate the bound switches and leak to HomeKit/Google. On (default) disables them in the
+  entity registry; turning it off re-enables the ones this integration disabled. The switches still
+  mirror each other, so you lose nothing.
 
 ## How it works
 

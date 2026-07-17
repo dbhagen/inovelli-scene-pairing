@@ -68,6 +68,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if options.get(CONF_ENABLE_DASHBOARD):
         await frontend_panel.async_register(hass)
 
+    # Hide (or, if the option was turned off, re-show) the redundant ZHA group entities.
+    await engine.async_apply_group_visibility()
+
     return True
 
 
