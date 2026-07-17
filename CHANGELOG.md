@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/dbhagen/inovelli-scene-pairing/compare/v0.2.0...v0.3.0) (2026-07-17)
+
+
+### Features
+
+* option to hide auto-created ZHA group entities ([c777459](https://github.com/dbhagen/inovelli-scene-pairing/commit/c777459fe3529f22c5c0bd71c6d5166284359c9c))
+
 ## [0.2.0](https://github.com/dbhagen/inovelli-scene-pairing/compare/v0.1.0...v0.2.0) (2026-07-17)
 
 
