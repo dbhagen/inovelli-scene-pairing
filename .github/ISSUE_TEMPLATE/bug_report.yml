@@ -1,0 +1,39 @@
+name: Bug report
+description: Something isn't working with the integration
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: confirm you use **ZHA** (not Zigbee2MQTT) and a supported
+        switch (VZM31-SN / VZM35-SN).
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Integration version
+    validations:
+      required: true
+  - type: dropdown
+    id: switch_model
+    attributes:
+      label: Switch model(s)
+      multiple: true
+      options:
+        - VZM31-SN
+        - VZM35-SN
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: Steps to reproduce, expected vs actual, and debug logs if possible.
+    validations:
+      required: true
