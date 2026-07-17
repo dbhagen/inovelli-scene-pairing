@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Inovelli Scene Pairing",
+        "description": "Pair Inovelli Blue switches into ZHA groups from their scene buttons. Requires the ZHA integration."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single configuration of Inovelli Scene Pairing is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Inovelli Scene Pairing options",
+        "data": {
+          "window_seconds": "Pairing window (seconds)",
+          "palette": "LED color palette (comma-separated hues 0-255)",
+          "pair_prefix": "Group name prefix"
+        },
+        "data_description": {
+          "window_seconds": "How long a switch stays in pairing mode after you hold its config button.",
+          "palette": "Hues cycled by a single tap while pairing. Orange (21) is reserved for ungrouped switches.",
+          "pair_prefix": "Zigbee groups created by pairing are named \"<prefix> N\"."
+        }
+      }
+    }
+  }
+}
