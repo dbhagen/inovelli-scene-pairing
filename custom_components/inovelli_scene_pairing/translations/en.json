@@ -21,7 +21,11 @@
           "cmd_arm": "Arm / add button",
           "cmd_color": "Cycle-color button",
           "cmd_remove": "Remove button",
-          "cmd_exit": "Exit button(s)"
+          "cmd_exit": "Exit button(s)",
+          "default_light_hue": "Default light idle color (hue 0-255)",
+          "default_fan_hue": "Default fan idle color (hue 0-255)",
+          "enable_hardware": "Enable physical scene-button pairing",
+          "enable_dashboard": "Enable management dashboard"
         },
         "data_description": {
           "window_seconds": "How long a switch stays in pairing mode after you hold its config button.",
@@ -30,8 +34,70 @@
           "cmd_arm": "ZHA event command that arms pairing / adds a switch (default button_3_hold).",
           "cmd_color": "ZHA event command that cycles the group color while pairing (default button_3_press).",
           "cmd_remove": "ZHA event command that removes a switch from its group (default button_3_double).",
-          "cmd_exit": "ZHA event command(s) that exit pairing early; comma-separate multiple (default button_1_press, button_2_press)."
+          "cmd_exit": "ZHA event command(s) that exit pairing early; pick one or more (default down/up paddle single tap).",
+          "default_light_hue": "LED bar hue a light dimmer shows when it is not in a group (default 21, orange).",
+          "default_fan_hue": "LED bar hue a fan switch shows when it is not in a group (default 170, blue).",
+          "enable_hardware": "React to the physical scene buttons (hold to pair/arm, tap to set color, etc.). Turn off for a dashboard-only setup.",
+          "enable_dashboard": "Adds an \"Inovelli Pairing\" sidebar panel + Lovelace card to create, add, recolor, and remove groups. Hard-refresh the browser after toggling."
         }
+      }
+    }
+  },
+  "services": {
+    "create_group": {
+      "name": "Create group",
+      "description": "Create a pairing group from two or more Inovelli Blue switches.",
+      "fields": {
+        "switches": {
+          "name": "Switches",
+          "description": "The switches to pair together (pick two or more)."
+        },
+        "color_hue": {
+          "name": "Color hue",
+          "description": "LED bar hue 0-255 for the new group (default: first palette color)."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Optional label (kept under the group-name prefix, e.g. \"Inovelli Link Kitchen\"). Defaults to the next \"Inovelli Link N\"."
+        }
+      }
+    },
+    "add_member": {
+      "name": "Add member",
+      "description": "Add a switch to an existing pairing group.",
+      "fields": {
+        "group_id": {"name": "Group ID", "description": "The Zigbee group id to add to."},
+        "switch": {"name": "Switch", "description": "The switch to add."}
+      }
+    },
+    "remove_member": {
+      "name": "Remove member",
+      "description": "Remove a switch from a pairing group (the group dissolves below two members).",
+      "fields": {
+        "group_id": {"name": "Group ID", "description": "The Zigbee group id to remove from."},
+        "switch": {"name": "Switch", "description": "The switch to remove."}
+      }
+    },
+    "set_color": {
+      "name": "Set color",
+      "description": "Set the LED bar color for every switch in a group.",
+      "fields": {
+        "group_id": {"name": "Group ID", "description": "The Zigbee group id to recolor."},
+        "color_hue": {"name": "Color hue", "description": "LED bar hue 0-255."}
+      }
+    },
+    "delete_group": {
+      "name": "Delete group",
+      "description": "Dissolve a pairing group and unbind all its switches.",
+      "fields": {
+        "group_id": {"name": "Group ID", "description": "The Zigbee group id to delete."}
+      }
+    },
+    "enter_pairing_mode": {
+      "name": "Enter pairing mode",
+      "description": "Arm pairing on a switch (same as holding its config button) so you can add others.",
+      "fields": {
+        "switch": {"name": "Switch", "description": "The switch to arm as the pairing anchor."}
       }
     }
   }

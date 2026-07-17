@@ -1,0 +1,84 @@
+create_group:
+  fields:
+    switches:
+      required: true
+      selector:
+        device:
+          integration: zha
+          manufacturer: Inovelli
+          multiple: true
+    color_hue:
+      example: 85
+      selector:
+        number:
+          min: 0
+          max: 255
+          mode: slider
+    name:
+      example: Kitchen
+      selector:
+        text:
+
+add_member:
+  fields:
+    group_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    switch:
+      required: true
+      selector:
+        device:
+          integration: zha
+          manufacturer: Inovelli
+
+remove_member:
+  fields:
+    group_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    switch:
+      required: true
+      selector:
+        device:
+          integration: zha
+          manufacturer: Inovelli
+
+set_color:
+  fields:
+    group_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    color_hue:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 255
+          mode: slider
+
+delete_group:
+  fields:
+    group_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+
+enter_pairing_mode:
+  fields:
+    switch:
+      required: true
+      selector:
+        device:
+          integration: zha
+          manufacturer: Inovelli

@@ -6,6 +6,9 @@
   ],
   "config_flow": true,
   "dependencies": [
+    "frontend",
+    "http",
+    "websocket_api",
     "zha"
   ],
   "documentation": "https://github.com/dbhagen/inovelli-scene-pairing",

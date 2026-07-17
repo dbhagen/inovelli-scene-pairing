@@ -39,9 +39,11 @@ LED_EFFECT_CMD = 1  # led_effect command id
 LED_FX_FAST_BLINK = 2  # fast-blink effect
 LED_FX_CLEAR = 0  # clear/stop effect
 
-# LED bar color hues (0-255). Orange is the idle "ungrouped" color and is
-# deliberately excluded from the palette so grouped/ungrouped stay distinct.
-LED_IDLE_HUE = 21  # orange
+# LED bar color hues (0-255). Orange is the idle "ungrouped" color for light
+# dimmers and is deliberately excluded from the palette so grouped/ungrouped stay
+# distinct. Fan switches idle blue by default (the house convention).
+LED_IDLE_HUE = 21  # orange (light default idle)
+LED_IDLE_HUE_FAN = 170  # blue (fan default idle)
 PALETTE_DEFAULT = [0, 42, 85, 127, 170, 212, 234]  # red,yellow,green,cyan,blue,purple,pink
 
 # LED number-entity suffixes exposed by the ZHA Inovelli quirk.
@@ -58,6 +60,28 @@ WINDOW_SECONDS_DEFAULT = 20
 CONF_WINDOW_SECONDS = "window_seconds"
 CONF_PALETTE = "palette"
 CONF_PAIR_PREFIX = "pair_prefix"
+CONF_ENABLE_DASHBOARD = "enable_dashboard"
+CONF_ENABLE_HARDWARE = "enable_hardware"
+CONF_DEFAULT_LIGHT_HUE = "default_light_hue"
+CONF_DEFAULT_FAN_HUE = "default_fan_hue"
+
+DEFAULT_ENABLE_DASHBOARD = False
+DEFAULT_ENABLE_HARDWARE = True
+
+# Known Inovelli Blue zha_event gesture commands, offered as dropdown options in the
+# options flow (custom values are still allowed for anything not listed here).
+GESTURE_COMMANDS = [
+    ("button_3_hold", "Config button — hold"),
+    ("button_3_press", "Config button — single tap"),
+    ("button_3_double", "Config button — double tap"),
+    ("button_3_triple", "Config button — triple tap"),
+    ("button_2_press", "Up paddle — single tap"),
+    ("button_2_double", "Up paddle — double tap"),
+    ("button_2_hold", "Up paddle — hold"),
+    ("button_1_press", "Down paddle — single tap"),
+    ("button_1_double", "Down paddle — double tap"),
+    ("button_1_hold", "Down paddle — hold"),
+]
 
 DEFAULT_OPTIONS = {
     CONF_WINDOW_SECONDS: WINDOW_SECONDS_DEFAULT,
@@ -67,4 +91,27 @@ DEFAULT_OPTIONS = {
     CONF_CMD_COLOR: DEFAULT_CMD_COLOR,
     CONF_CMD_REMOVE: DEFAULT_CMD_REMOVE,
     CONF_CMD_EXIT: DEFAULT_CMD_EXIT,
+    CONF_ENABLE_DASHBOARD: DEFAULT_ENABLE_DASHBOARD,
+    CONF_ENABLE_HARDWARE: DEFAULT_ENABLE_HARDWARE,
+    CONF_DEFAULT_LIGHT_HUE: LED_IDLE_HUE,
+    CONF_DEFAULT_FAN_HUE: LED_IDLE_HUE_FAN,
 }
+
+# --- Dashboard / services -------------------------------------------------------
+# Dispatcher signal fired after any group mutation (gesture or service driven).
+SIGNAL_GROUPS_UPDATED = f"{DOMAIN}_groups_updated"
+
+SERVICE_CREATE_GROUP = "create_group"
+SERVICE_ADD_MEMBER = "add_member"
+SERVICE_REMOVE_MEMBER = "remove_member"
+SERVICE_SET_COLOR = "set_color"
+SERVICE_DELETE_GROUP = "delete_group"
+SERVICE_ENTER_PAIRING = "enter_pairing_mode"
+
+# Frontend panel/card
+PANEL_URL_PATH = "inovelli-pairing"
+PANEL_TITLE = "Inovelli Pairing"
+PANEL_ICON = "mdi:led-strip-variant"
+PANEL_NAME = "inovelli-scene-pairing-panel"
+FRONTEND_SCRIPT_URL = f"/{DOMAIN}/inovelli-scene-pairing-panel.js"
+WS_LIST_GROUPS = f"{DOMAIN}/list_groups"

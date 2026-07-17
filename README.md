@@ -41,8 +41,26 @@ Use the small **config button** below the paddle (unless noted):
 To pair: **hold** switch A (its bar flashes for the pairing window), then **hold** switch B
 within the window — they're now grouped and mirror each other. Keep holding more switches to
 add a 3rd/4th. **Single-tap** the switch you're holding to pick a color. **Double-tap** any
-switch to drop it from its group. A grouped switch's bar shows the group color; ungrouped is
-orange.
+switch to drop it from its group.
+
+Each gesture is **remappable** in the options (e.g. use double-tap to arm instead of hold),
+and the whole physical sequence can be turned off for a **dashboard-only** setup.
+
+### Setup mode (color a single switch)
+
+The pairing gesture doubles as a per-switch LED setup: **hold** a switch to arm it, then
+**single-tap** to cycle its LED bar color. If you never join it to a group, the color you
+land on **sticks** — so `hold → tap → walk away` sets any switch's standalone color.
+
+## Dashboard
+
+Enable **Management dashboard** in the options to add an **Inovelli Pairing** sidebar panel
+(and a matching Lovelace card) that mirrors every physical action: create groups from a
+device picker, add/remove switches, recolor a group with a live-preview hue slider, and
+delete groups — all kept in sync with the switches. A `sensor.inovelli_scene_pairing_groups`
+entity exposes the current groups, and services (`inovelli_scene_pairing.create_group`,
+`add_member`, `remove_member`, `set_color`, `delete_group`, `enter_pairing_mode`) back the UI
+for use in your own automations.
 
 ## Requirements
 
@@ -63,9 +81,17 @@ orange.
 **Settings → Devices & Services → Inovelli Scene Pairing → Configure:**
 
 - **Pairing window (seconds)** — how long a switch stays in pairing mode after a hold (default 20).
-- **LED color palette** — comma-separated hues (0–255) cycled by a single tap. Orange (21) is
-  reserved for ungrouped switches and is not in the default palette.
+- **LED color palette** — comma-separated hues (0–255) cycled by a single tap.
 - **Group name prefix** — Zigbee groups are named `"<prefix> N"` (default `Inovelli Link`).
+- **Gesture mapping** — pick which button events arm / cycle-color / remove / exit (dropdowns of
+  hold, single/double/triple tap, and paddle presses; custom values allowed). Exit accepts several.
+- **Default light idle color** / **Default fan idle color** — the LED hue a switch shows when it
+  is *not* in a group, chosen per device type (defaults: lights orange `21`, fans blue `170`).
+  VZM35 fan switches are detected automatically.
+- **Enable physical scene-button pairing** — turn the hardware gestures on/off (default on). Off =
+  dashboard-only.
+- **Enable management dashboard** — add the sidebar panel + card (default off). Hard-refresh the
+  browser after toggling.
 
 ## How it works
 
@@ -80,6 +106,10 @@ orange.
 
 - **Nothing happens on a hold** — this reads events from **ZHA**. If your switches are on
   **Zigbee2MQTT**, they are not supported. Confirm the model is VZM31-SN / VZM35-SN.
+- **One switch's config button does nothing (but its paddle works)** — a fresh ZHA pairing can
+  leave the Inovelli manufacturer cluster (`0xFC31`) unbound, so scene events never reach Home
+  Assistant. Fix it with **Settings → Devices & Services → ZHA → the device → ⋮ → Reconfigure
+  device** (this re-binds the cluster). Commonly needed on VZM35 fan switches.
 - **Enable debug logging:**
   ```yaml
   logger:

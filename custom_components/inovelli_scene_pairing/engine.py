@@ -12,6 +12,7 @@ pairing window is kept purely in memory.
 from __future__ import annotations
 
 import asyncio
+import colorsys
 from dataclasses import dataclass, field
 import logging
 from typing import Any
@@ -19,6 +20,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
     ACTION_ARM,
@@ -32,6 +34,8 @@ from .const import (
     CONF_CMD_COLOR,
     CONF_CMD_EXIT,
     CONF_CMD_REMOVE,
+    CONF_DEFAULT_FAN_HUE,
+    CONF_DEFAULT_LIGHT_HUE,
     CONF_PAIR_PREFIX,
     CONF_PALETTE,
     CONF_WINDOW_SECONDS,
@@ -46,8 +50,10 @@ from .const import (
     LED_FX_CLEAR,
     LED_FX_FAST_BLINK,
     LED_IDLE_HUE,
+    LED_IDLE_HUE_FAN,
     LED_OFF_COLOR_SUFFIX,
     LED_ON_COLOR_SUFFIX,
+    SIGNAL_GROUPS_UPDATED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -196,6 +202,7 @@ class ScenePairingEngine:
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
     _timer: asyncio.TimerHandle | None = field(default=None, init=False)
     _color_cache: dict[str, tuple[str | None, str | None]] = field(default_factory=dict, init=False)
+    _type_cache: dict[str, str] = field(default_factory=dict, init=False)
     _cmd_actions: dict[str, str] = field(default_factory=dict, init=False)
     handled_commands: frozenset[str] = field(default_factory=frozenset, init=False)
 
@@ -214,11 +221,17 @@ class ScenePairingEngine:
             (opts.get(CONF_CMD_REMOVE, DEFAULT_CMD_REMOVE), ACTION_REMOVE),
             (opts.get(CONF_CMD_EXIT, DEFAULT_CMD_EXIT), ACTION_EXIT),
         ):
-            for cmd in str(cmds).replace(";", ",").split(","):
-                cmd = cmd.strip()
-                if cmd:
-                    mapping.setdefault(cmd, action)
+            for cmd in self._as_commands(cmds):
+                mapping.setdefault(cmd, action)
         return mapping
+
+    @staticmethod
+    def _as_commands(value: Any) -> list[str]:
+        """Normalize a gesture option (list from a multi-select, or comma string)."""
+        items = (
+            value if isinstance(value, (list, tuple)) else str(value).replace(";", ",").split(",")
+        )
+        return [str(c).strip() for c in items if str(c).strip()]
 
     # -- config helpers --------------------------------------------------------
     @property
@@ -233,6 +246,33 @@ class ScenePairingEngine:
     @property
     def _prefix(self) -> str:
         return str(self.options.get(CONF_PAIR_PREFIX, "Inovelli Link"))
+
+    @property
+    def _light_idle_hue(self) -> int:
+        return int(self.options.get(CONF_DEFAULT_LIGHT_HUE, LED_IDLE_HUE))
+
+    @property
+    def _fan_idle_hue(self) -> int:
+        return int(self.options.get(CONF_DEFAULT_FAN_HUE, LED_IDLE_HUE_FAN))
+
+    def _device_type(self, ieee: str) -> str:
+        """'fan' for VZM35 fan switches, else 'light' (cached per ieee)."""
+        if ieee in self._type_cache:
+            return self._type_cache[ieee]
+        device = dr.async_get(self.hass).async_get_device(
+            connections={(dr.CONNECTION_ZIGBEE, ieee)}
+        )
+        model = (getattr(device, "model", "") or "") if device is not None else ""
+        kind = "fan" if "vzm35" in model.lower() else "light"
+        self._type_cache[ieee] = kind
+        return kind
+
+    def _idle_hue(self, ieee: str) -> int:
+        return self._fan_idle_hue if self._device_type(ieee) == "fan" else self._light_idle_hue
+
+    async def _set_idle_color(self, ieee: str) -> None:
+        """Reset a switch's LED bar to its type-appropriate ungrouped color."""
+        await self._set_color(ieee, self._idle_hue(ieee))
 
     # -- lifecycle -------------------------------------------------------------
     async def async_shutdown(self) -> None:
@@ -253,12 +293,10 @@ class ScenePairingEngine:
     async def _async_expire(self) -> None:
         async with self._lock:
             anchor = self._state.anchor
-            in_group = self._state.group_id is not None
             self._state = _State()
-            if anchor and not in_group:
-                # a never-completed new-group anchor reverts to idle orange
-                await self._set_color(anchor, LED_IDLE_HUE)
             if anchor:
+                # Setup mode: any color chosen by tapping sticks (no idle revert);
+                # just stop the pairing-window flash.
                 await self._led_clear(anchor)
 
     # -- event entry point -----------------------------------------------------
@@ -278,6 +316,7 @@ class ScenePairingEngine:
                     await self._leave(ieee)
                 elif action == ACTION_EXIT:
                     await self._exit(ieee)
+            self._notify()
         except ZhaUnavailable:
             _LOGGER.warning("ZHA gateway unavailable; ignoring %s from %s", command, ieee)
         except Exception:  # noqa: BLE001 - never let a bad event kill the listener
@@ -336,7 +375,7 @@ class ScenePairingEngine:
             anchor=ieee, group_id=gid, ts=self.hass.loop.time(), color=color, cidx=cidx
         )
         if gid is None:
-            await self._set_color(ieee, LED_IDLE_HUE)
+            await self._set_idle_color(ieee)
         await self._led(ieee, color, self._window)
         self._arm_timer()
         _LOGGER.debug("arm: %s opened group %s (hue %s)", ieee, gid, color)
@@ -354,9 +393,12 @@ class ScenePairingEngine:
         if self._state.group_id is not None:
             for member in await self._group_ieees(self._state.group_id):
                 await self._set_color(member, color)
+        else:
+            # Setup mode: recolor just this standalone switch (sticks after expiry).
+            await self._set_color(ieee, color)
         await self._led(ieee, color, self._window)
         self._arm_timer()
-        _LOGGER.debug("color: %s group -> hue %s", ieee, color)
+        _LOGGER.debug("color: %s -> hue %s (group=%s)", ieee, color, self._state.group_id)
 
     async def _leave(self, ieee: str) -> None:
         group = await self._pairing_group_of(ieee)
@@ -364,7 +406,7 @@ class ScenePairingEngine:
             _LOGGER.debug("leave: %s not in a pairing group", ieee)
             return
         await self._leave_group(ieee, group.group_id)
-        await self._led(ieee, LED_IDLE_HUE, 3)
+        await self._led(ieee, self._idle_hue(ieee), 3)
         if self._state.anchor == ieee:
             self._state = _State()
             self._cancel_timer()
@@ -402,7 +444,7 @@ class ScenePairingEngine:
     async def _leave_group(self, ieee: str, group_id: int) -> None:
         await self._zha.bind(ieee, group_id, unbind=True)
         await self._zha.remove_member(group_id, ieee)
-        await self._set_color(ieee, LED_IDLE_HUE)
+        await self._set_idle_color(ieee)
         remaining = await self._group_ieees(group_id)
         if len(remaining) < 2:
             await self._dissolve(group_id)
@@ -410,8 +452,116 @@ class ScenePairingEngine:
     async def _dissolve(self, group_id: int) -> None:
         for member in await self._group_ieees(group_id):
             await self._zha.bind(member, group_id, unbind=True)
-            await self._set_color(member, LED_IDLE_HUE)
+            await self._set_idle_color(member)
         await self._zha.remove_group(group_id)
+
+    # -- public API (services + dashboard) -------------------------------------
+    def _notify(self) -> None:
+        """Tell listeners (coordinator/sensor/dashboard) that groups changed."""
+        async_dispatcher_send(self.hass, SIGNAL_GROUPS_UPDATED)
+
+    def _device_name(self, ieee: str) -> str:
+        dev_reg = dr.async_get(self.hass)
+        device = dev_reg.async_get_device(connections={(dr.CONNECTION_ZIGBEE, ieee)})
+        if device is not None:
+            return device.name_by_user or device.name or ieee
+        return ieee
+
+    @staticmethod
+    def _hue_to_hex(hue: int) -> str:
+        """Inovelli LED hue (0-255) -> web hex, at full saturation/value."""
+        r, g, b = colorsys.hsv_to_rgb((int(hue) % 256) / 255.0, 1.0, 1.0)
+        return f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+
+    def list_groups(self) -> list[dict[str, Any]]:
+        """Snapshot of the pairing groups for the dashboard / sensor (sync-safe)."""
+        try:
+            groups = self._zha.list_groups()
+        except ZhaUnavailable:
+            return []
+        out: list[dict[str, Any]] = []
+        for g in groups:
+            name = str(getattr(g, "name", ""))
+            if not name.startswith(self._prefix):
+                continue
+            ieees = self._zha.group_member_ieees(g)
+            hue = self._get_color(ieees[0]) if ieees else self._palette[0]
+            out.append(
+                {
+                    "group_id": getattr(g, "group_id", None),
+                    "name": name,
+                    "members": [{"ieee": i, "name": self._device_name(i)} for i in ieees],
+                    "color_hue": hue,
+                    "color_hex": self._hue_to_hex(hue),
+                }
+            )
+        out.sort(key=lambda x: x["name"])
+        return out
+
+    async def async_create_group(
+        self, member_ieees: list[str], hue: int | None = None, name: str | None = None
+    ) -> int | None:
+        members = [i.lower() for i in member_ieees]
+        if len(members) < 2:
+            raise ValueError("A pairing group needs at least two switches.")
+        color = self._palette[0] if hue is None else int(hue)
+        # Groups are re-discovered by name prefix, so every created group must carry
+        # it — a custom label becomes a suffix ("Inovelli Link Kitchen").
+        if name:
+            gname = name if name.startswith(self._prefix) else f"{self._prefix} {name}"
+        else:
+            gname = self._next_group_name()
+        async with self._lock:
+            group = await self._zha.create_group(gname, members[0])
+            gid = getattr(group, "group_id", None)
+            await self._zha.bind(members[0], gid)
+            for ieee in members[1:]:
+                await self._zha.bind(ieee, gid)
+                await self._zha.add_member(gid, ieee)
+            for ieee in members:
+                await self._set_color(ieee, color)
+        self._notify()
+        return gid
+
+    async def async_add_member(self, group_id: int, ieee: str) -> None:
+        ieee = ieee.lower()
+        async with self._lock:
+            group = self._zha.get_group(group_id)
+            if group is None:
+                raise ValueError(f"No pairing group with id {group_id}.")
+            existing = self._zha.group_member_ieees(group)
+            color = self._get_color(existing[0]) if existing else self._palette[0]
+            prior = await self._pairing_group_of(ieee)
+            if prior is not None and getattr(prior, "group_id", None) != group_id:
+                await self._leave_group(ieee, prior.group_id)
+            await self._zha.bind(ieee, group_id)
+            await self._zha.add_member(group_id, ieee)
+            await self._set_color(ieee, color)
+        self._notify()
+
+    async def async_remove_member(self, group_id: int, ieee: str) -> None:
+        ieee = ieee.lower()
+        async with self._lock:
+            await self._leave_group(ieee, group_id)
+        self._notify()
+
+    async def async_set_group_color(self, group_id: int, hue: int) -> None:
+        async with self._lock:
+            for member in await self._group_ieees(group_id):
+                await self._set_color(member, int(hue))
+        self._notify()
+
+    async def async_delete_group(self, group_id: int) -> None:
+        async with self._lock:
+            await self._dissolve(group_id)
+        self._notify()
+
+    async def async_enter_pairing_mode(self, ieee: str) -> None:
+        ieee = ieee.lower()
+        async with self._lock:
+            self._expire_if_stale()
+            await self._hold(ieee)
+        self._notify()
 
     # -- LED helpers -----------------------------------------------------------
     def _color_entities(self, ieee: str) -> tuple[str | None, str | None]:
